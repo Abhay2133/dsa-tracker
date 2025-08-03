@@ -1,0 +1,51 @@
+# Auto-format code on PR
+name: Auto Format
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+    branches: [main, develop]
+
+jobs:
+  format:
+    name: Auto Format Code
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.head.repo.full_name == github.repository
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: ${{ github.head_ref }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        working-directory: ./web
+        run: npm install
+
+      - name: Run Prettier
+        working-directory: ./web
+        run: npx prettier --write "src/**/*.{ts,tsx,js,jsx,json,css,md}"
+
+      - name: Check for changes
+        id: verify-changed-files
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commit formatted code
+        if: steps.verify-changed-files.outputs.changed == 'true'
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add .
+          git commit -m "🎨 Auto-format code with Prettier"
+          git push
